@@ -1,10 +1,13 @@
 import os
+import json
 import time
+import base64
 import cPickle
 import pickle
 import datetime
 import logging
 import flask
+import requests
 import werkzeug
 import optparse
 import tornado.wsgi
@@ -29,27 +32,32 @@ app = flask.Flask(__name__)
 def index():
     return flask.render_template('index.html', has_result=False)
 
+
 @app.route('/android_post', methods=['POST'])
 def process_android_upload():
     # Get the parsed contents of the form data
     if flask.request.headers['Content-Type'] == 'application/json':
         try:
-            json = flask.request.json
+
             image_string = flask.request.json['image']
             image_filename = flask.request.json['filename']
-            filename_ = str(datetime.datetime.now()).replace(' ', '_') + \
+
+            filename_ = str(datetime.datetime.now()).replace(' ', '_') + '_' +\
                 werkzeug.secure_filename(image_filename)
-            filename = os.path.join(UPLOAD_FOLDER, filename_)
+
+            abs_filename = os.path.join(UPLOAD_FOLDER, filename_)
             image_data = decode_image(image_string)
-            with open(filename, 'wb') as f:
+
+            with open(abs_filename, 'wb') as f:
                 f.write(image_data)
-            logging.info('Saving to %s.', filename)
-        
+            logging.info('Saving to %s.', abs_filename)
+
         except Exception as err:
             logging.info('Uploaded image from Android open error: %s', err)
+    else:
+        logging.info('Unaccepted format')
 
-    response = {}
-    return flask.jsonify(response)
+    return ('', 204)
 
 def decode_image(base64_image):
     # decode Base64 image data
