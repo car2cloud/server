@@ -18,7 +18,7 @@ from PIL import Image
 import cStringIO as StringIO
 import urllib
 import exifutil
-
+import shutil
 
 REPO_DIRNAME = os.path.abspath(os.path.dirname(os.path.abspath(__file__)) + '/../..')
 UPLOAD_FOLDER = '/tmp/uploaded_frames'
@@ -27,6 +27,8 @@ ALLOWED_IMAGE_EXTENSIONS = set(['png', 'bmp', 'jpg', 'jpe', 'jpeg', 'gif'])
 # Obtain the flask app object
 app = flask.Flask(__name__)
 
+# global gps dictionary: gps coords are keys and values are images
+gps_view = {}
 
 @app.route('/')
 def index():
@@ -41,6 +43,7 @@ def process_android_upload():
 
             image_string = flask.request.json['image']
             image_filename = flask.request.json['filename']
+            gps_coords = (flask.request.json['longitude'], flask.request.json['latitude'])
 
             filename_ = str(datetime.datetime.now()).replace(' ', '_') + '_' +\
                 werkzeug.secure_filename(image_filename)
@@ -51,6 +54,9 @@ def process_android_upload():
             with open(abs_filename, 'wb') as f:
                 f.write(image_data)
             logging.info('Saving to %s.', abs_filename)
+
+            # for now only keep the latest image for each pair of gps coords
+            gps_view[gps_coords] = abs_filename
 
         except Exception as err:
             logging.info('Uploaded image from Android open error: %s', err)
@@ -77,7 +83,6 @@ def start_tornado(app, port=5000):
     http_server.listen(port)
     print("Tornado server starting on port {}".format(port))
     tornado.ioloop.IOLoop.instance().start()
-
 
 def start_from_terminal(app):
     """
@@ -109,4 +114,7 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-    start_from_terminal(app)
+    try:
+        start_from_terminal(app)
+    finally:
+        shutil.rmtree('/tmp/uploaded_frames')
