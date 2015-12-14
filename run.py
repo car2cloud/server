@@ -19,6 +19,7 @@ import cStringIO as StringIO
 import urllib
 import exifutil
 import shutil
+import math
 
 REPO_DIRNAME = os.path.abspath(os.path.dirname(os.path.abspath(__file__)) + '/../..')
 UPLOAD_FOLDER = '/tmp/uploaded_frames'
@@ -76,6 +77,18 @@ def allowed_file(filename):
         '.' in filename and
         filename.rsplit('.', 1)[1] in ALLOWED_IMAGE_EXTENSIONS
     )
+
+# use haversine formula to calculate distance between two gps coords
+def gps_distance(gps1, gps2):
+    radius = 3959 # in miles...6371 in km
+
+    dlat = math.radians(gps1[0]-gps2[0])
+    dlon = math.radians(gps2[0]-gps2[1])
+    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(gps1[0])) \
+        * math.cos(math.radians(gps1[0])) * math.sin(dlon/2) * math.sin(dlon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    d = radius * c
+    return d
 
 def start_tornado(app, port=5000):
     http_server = tornado.httpserver.HTTPServer(
