@@ -31,11 +31,6 @@ app = flask.Flask(__name__)
 # global gps dictionary: gps coords are keys and values are images
 gps_view = {}
 
-@app.route('/')
-def index():
-    return flask.render_template('index.html', has_result=False)
-
-
 @app.route('/android_post', methods=['POST'])
 def process_android_upload():
     # Get the parsed contents of the form data
@@ -66,6 +61,28 @@ def process_android_upload():
 
     return ('', 204)
 
+@app.route('/', methods=['GET'])
+def process_gps_request():
+    try:
+        logging.info('Request image for gps coords: long=%s, lat=%s',
+                    flask.request.args.get('longitude'),
+                    flask.request.args.get('latitude'))
+    except:
+        return ('Request should be of form "/?longitude=x&latitude=y"', 404)
+
+    # Get the requested gps coords from the query string
+    requested_gps = (float(flask.request.args.get('longitude')),
+                    float(flask.request.args.get('latitude')))
+
+    # get the image file for the closest stored gps coordinates
+    image_file = get_closest_image(requested_gps)
+
+    # no closest gps coord (list likely empty), so return 404
+    if ( image_file == "" ):
+        return ('No stored images at the server!', 404)
+
+    return flask.send_file(image_file, mimetype='image/jpg')
+
 def decode_image(base64_image):
     # decode Base64 image data
     enc_data = base64.b64decode(base64_image)
@@ -77,6 +94,18 @@ def allowed_file(filename):
         '.' in filename and
         filename.rsplit('.', 1)[1] in ALLOWED_IMAGE_EXTENSIONS
     )
+
+# function that iterates through stored gps coords and returns filename for closest one
+def get_closest_image(req_gps):
+    min_distance = 1000000
+    best_image_match = ""
+    for stored_gps in gps_view:
+        curr_distance = gps_distance(req_gps, stored_gps)
+        if (curr_distance < min_distance):
+            min_distance = curr_distance
+            best_image_match = gps_view[stored_gps]
+
+    return best_image_match
 
 # use haversine formula to calculate distance between two gps coords
 def gps_distance(gps1, gps2):
